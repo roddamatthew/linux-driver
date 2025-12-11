@@ -33,3 +33,14 @@
 	- I can instantiate many devices (with the same major but different minor dev nums)
 	- All devices will share the same driver that allocated their major dev num
 
+## Logging:
+- Can log to the kernel's fd at different levels:
+	- emerg
+	- alert
+	- crit
+	- err
+	- warn
+	- notice
+	- info
+	- debug
+ 
