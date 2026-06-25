@@ -1,9 +1,9 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <stdint.h>
+#include <linux/types.h>
 
-uint64_t target_addr;
+u64 target_addr;
 
 int init_rootkit(void)
 {
