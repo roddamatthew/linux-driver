@@ -1,4 +1,5 @@
 #include <linux/module.h>
+#include <linux/kernel.h>
 #include <linux/init.h>
 
 int init_rootkit(void)
@@ -14,4 +15,4 @@ void exit_rootkit(void)
 
 module_init(init_rootkit);
 module_exit(exit_rootkit);
-MODULE_LICENCE("GPL");
+MODULE_LICENSE("GPL");
