@@ -1,4 +1,4 @@
-obj-m += rootkit.o
+obj-m += hide_getdents64.o
 
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
